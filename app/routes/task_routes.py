@@ -13,14 +13,14 @@ def validate_task(task_id):
     try:
         task_id = int(task_id)
     except ValueError:
-        response = {"message": f"Task id {task_id} is invalid"}
+        response = {"error": "Invalid task ID"}
         abort(make_response(response, 400))
 
     query = db.select(Task).where(Task.id == task_id)
     task = db.session.scalar(query)
 
     if not task:
-        response = {"message": f"Task with id:{task_id} not found"}
+        response = {"error": "Task not found"}
         abort(make_response(response, 404))
 
     return task
