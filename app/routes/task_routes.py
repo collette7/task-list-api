@@ -2,8 +2,42 @@ from flask import Blueprint, request, make_response, abort, Response
 from ..db import db
 from app.models.task import Task
 from datetime import datetime
+import requests
+import os
 
 tasks_bp = Blueprint("tasks_bp", __name__, url_prefix="/tasks")
+
+# Slack API
+SLACK_API_TOKEN = os.environ.get('SLACK_API_TOKEN')
+SLACK_CHANNEL = os.environ.get('SLACK_CHANNEL', 'task-notifications')
+
+def send_slack_notification(message):
+    if not SLACK_API_TOKEN:
+        print("Warning: SLACK_API_TOKEN not configured.")
+        return False
+
+    url = "https://slack.com/api/chat.postMessage"
+    headers = {
+        "Authorization": f"Bearer {SLACK_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "channel": SLACK_CHANNEL,
+        "text": message
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        data = response.json()
+
+        if data.get("ok"):
+            return True
+        else:
+            print(f"Slack API error: {data.get('error')}")
+            return False
+    except Exception as e:
+        print(f"Error sending Slack notification: {str(e)}")
+        return False
 
 
 def validate_task(task_id):
@@ -107,6 +141,10 @@ def mark_task_complete(task_id):
 
     task.completed_at = datetime.now()
     db.session.commit()
+
+    # Send Slack notification when a task is marked complete
+    notification_message = f"Someone just completed the task {task.title}"
+    send_slack_notification(notification_message)
 
     return Response(status=204, mimetype="application/json")
 
